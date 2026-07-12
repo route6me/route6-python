@@ -9,7 +9,7 @@ description = "Route6 thin client — tunnel localhost ports to *.on.route6.me +
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "M3T Projekt d.o.o.", email = "info@route6.me" }]
+authors = [{ name = "Route6", email = "info@route6.me" }]
 keywords = ["route6", "tunnel", "mcp", "ipv6", "agent", "ai-agent", "model-context-protocol"]
 classifiers = [
   "License :: OSI Approved :: MIT License",
