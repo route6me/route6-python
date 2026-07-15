@@ -108,7 +108,8 @@ def _cmd_tunnel_start(args: argparse.Namespace) -> int:
         sys.stderr.write(_red("✗ At least one --hostname X --to PORT pair required.\n"))
         return 1
     for h, t in pairs.items():
-        sys.stdout.write(f"  → {h}.on.route6.me  →  {t}\n")
+        fq = h if h.endswith((".on.route6.me", ".mesh.route6.me")) else f"{h}.on.route6.me"
+        sys.stdout.write(f"  → {fq}  →  {t}\n")
 
     return asyncio.run(_tunnel_start_async(pairs, want_mcp=not args.no_mcp, mcp_port=args.mcp_port))
 

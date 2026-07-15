@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "route6"
-version = "0.1.1"
+version = "0.1.2"
 description = "Route6 thin client — tunnel localhost ports to *.on.route6.me + local MCP proxy. Python parity of @route6/agent (npm). Get an API key at https://route6.me"
 readme = "README.md"
 requires-python = ">=3.10"

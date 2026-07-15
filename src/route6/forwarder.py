@@ -93,7 +93,11 @@ class Forwarder:
     @staticmethod
     def _to_fqdn(name: str) -> str:
         lower = name.lower()
-        return lower if lower.endswith(".on.route6.me") else f"{lower}.on.route6.me"
+        # .mesh.route6.me names pass through untouched (private mesh endpoints,
+        # feature-mesh-webhook WU-2.7) — only bare labels get the public suffix.
+        if lower.endswith((".on.route6.me", ".mesh.route6.me")):
+            return lower
+        return f"{lower}.on.route6.me"
 
     @staticmethod
     def _to_origin(target: str) -> str:
