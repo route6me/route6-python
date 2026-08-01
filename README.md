@@ -1,83 +1,74 @@
 # route6
 
-Python thin client for [Route6.me](https://route6.me) — Python parity of [`@route6/agent`](https://www.npmjs.com/package/@route6/agent).
+Installs and runs the [Route6](https://route6.me) client.
 
-Two surfaces:
-- **CLI** — `route6 tunnel start --hostname X --to PORT` exposes a localhost port at `https://X.on.route6.me`, plus a local MCP proxy at `http://127.0.0.1:3000/mcp` for Cursor / Claude Code / Cline / any MCP-aware editor.
-- **Library** — `from route6 import Route6` calls every MCP tool with typed Python ergonomics.
+Route6 gives an AI agent its own **public IPv6 `/64`**, an MCP endpoint on
+`localhost`, and an egress proxy so its traffic leaves from that identity.
 
-## Install
+This package is a **launcher**. It downloads the `r6me` binary for your platform,
+verifies it against the published checksums, and runs it. It implements no
+protocol of its own and has **no dependencies**.
 
 ```bash
 pip install route6
+route6 up
+route6 status
 ```
 
-Requires Python ≥ 3.10. Linux x64, macOS arm64 / x64 — tested matrix.
+Then point any MCP client at `http://localhost:3000/mcp`.
 
-## Quick start (CLI)
+## Configure
+
+The client reads `~/.r6me/config.toml`:
 
 ```bash
-route6 login sk_a6_<your-api-key>
-
-python3 -m http.server 3000 &
-
-route6 tunnel start --hostname my-app --to 3000
+mkdir -p ~/.r6me && chmod 700 ~/.r6me
+echo 'api_key = "sk_a6_your_key_here"' > ~/.r6me/config.toml
+chmod 600 ~/.r6me/config.toml
 ```
 
-In another terminal:
-
-```bash
-curl https://my-app.on.route6.me/
-# → your local server's directory listing, served over the public internet.
-```
-
-The MCP proxy is also live at `http://127.0.0.1:3000/mcp` — point your editor at it.
-
-## Quick start (library)
-
-```python
-from route6 import Route6
-
-with Route6(api_key="sk_a6_...") as r6:
-    ident = r6.tools.identity_get()
-    print(ident["active_ipv6"], ident["prefix"])
-
-    page = r6.tools.web_fetch(url="https://example.com")
-    print(page["body"][:200])
-```
-
-Calls hit the public MCP at `https://gw.route6.me/mcp` over HTTP/2. The result is unwrapped — `tools.web_fetch(...)` returns the parsed dict the gateway produced, not the raw JSON-RPC envelope.
-
-Available tools mirror the Node SDK and the container: `identity_get`, `identity_set_ipv6`, `web_fetch`, `net_ping`, `hostname_register`, `team_chat`, `team_task`, etc. — full list at <https://docs.route6.me>.
+`ROUTE6_API_KEY` in the environment works too. Get a key at
+[route6.me](https://route6.me/register) — the free tier needs no card.
 
 ## Commands
 
-| Command | Purpose |
-|--------|---------|
-| `route6 login <api_key>` | Save the API key to `~/.route6/config.json` (mode 0600), verify against the gateway. |
-| `route6 logout` | Clear the stored key. |
-| `route6 status` | Print config + `GET /whoami` from the gateway. |
-| `route6 tunnel start --hostname X --to PORT` | Open inbound tunnel + start local MCP proxy. Pair `--hostname` and `--to` repeat-by-repeat for multi-host. |
-| `route6 tunnel start ... --no-mcp` | Tunnel only, skip the MCP proxy. |
-| `route6 mcp serve --port 3000` | MCP-only mode (no inbound tunnel) — useful for hosted agents. |
+| Command | |
+| --- | --- |
+| `route6 up` | connect the daemon |
+| `route6 down` | disconnect |
+| `route6 status` | transport state, config generation, forwards, MCP endpoint |
+| `route6 ssh <name>` | shell on a team-mate over the private mesh (Team plans) |
+| `route6 version` | print the client version |
+| `route6 upgrade` | re-fetch the current stable binary |
 
-## Tier comparison
+Anything else is passed straight through to the binary.
 
-| | Lite (this client) | Pro (Docker container) |
-|--|--|--|
-| Install | `pip install route6` | `docker compose up` |
-| Outbound source IP | Your `/64` (preserved via the Route6 edge) | Your `/64` directly |
-| Inbound to public hostname | via `gw.route6.me` reverse tunnel | direct to your container |
-| Mesh between agents | Not in v1 | Native WireGuard |
-| MCP tools | All 28 | All 28 |
+## How the download works
 
-## Links
+On first use — not at install time, because a pip wheel has no reliable
+post-install hook and this has to behave the same everywhere — the launcher:
 
-- **Get an API key / manage your agents:** [route6.me](https://route6.me)
-- **Docs:** [docs.route6.me](https://docs.route6.me)
-- **Examples** (webhooks, clean-IP fetch, team coordination): [github.com/route6me/examples](https://github.com/route6me/examples)
-- **Node.js client:** [`@route6/agent` on npm](https://www.npmjs.com/package/@route6/agent) · [source](https://github.com/route6me/route6-agent)
+1. reads the current version from `https://dl.route6.me/stable`
+2. downloads the build matching your OS and architecture
+3. downloads `checksums.txt` and **verifies the sha256**, refusing to run
+   anything that does not match
+4. caches it in `~/.r6me/bin/` so later runs need no network
 
-## License
+Environment overrides: `R6ME_VERSION` pins a version, `R6ME_BASE_URL` points at a
+different artifact host, `R6ME_STATE_DIR` moves the cache and config.
 
-MIT © [Route6](https://route6.me) — the client is open source; the Route6 network service it connects to is a commercial product.
+Prefer not to use pip? `curl -fsSL https://dl.route6.me/install.sh | sh` does the
+same thing, and the binaries are published at
+[dl.route6.me](https://dl.route6.me/).
+
+## Upgrading from 0.1.x
+
+0.1.x was a thin protocol client with its own `login`, `tunnel` and `mcp serve`
+commands, plus a `Route6` library class. That code is gone — the real client does all of it, better. The old
+commands print what to use instead:
+
+- `route6 login` → write `~/.r6me/config.toml` (above)
+- `route6 tunnel start` → `route6 up`, then the `port_forward_create` MCP tool
+- `route6 mcp serve` → `route6 up` serves MCP as part of running the daemon
+
+Docs: <https://docs.route6.me/quick-start/r6me>
